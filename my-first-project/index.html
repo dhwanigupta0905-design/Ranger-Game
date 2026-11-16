@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Morphin Time: Ranger AR Studio</title>
+    <link rel="stylesheet" href="styles.css">
+
+    <!-- MediaPipe CDN Dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/face_detection.js" crossorigin="anonymous"></script>
+</head>
+<body>
+    <!-- CRT Holographic Scanline Overlay -->
+    <div class="scanlines"></div>
+
+    <!-- Screen Transformation Flash -->
+    <div id="screen-flash"></div>
+
+    <!-- Top Command Center Header -->
+    <header class="command-header">
+        <div class="title-group">
+            <span class="brand-icon">⚡</span>
+            <div>
+                <h1 class="brand-title">MORPHIN TIME</h1>
+                <div id="status-indicator" class="status-badge status-ready">CONNECTING TO MORPHIN GRID...</div>
+            </div>
+        </div>
+
+        <div class="header-controls">
+            <button id="toggle-audio-btn" class="hud-btn" title="Toggle Synthesized Web Audio">🔊 AUDIO: ON</button>
+            <button id="toggle-battle-btn" class="hud-btn" title="Toggle Command Center Defense Mini-game">🛡️ BATTLE MODE: OFF</button>
+            <button id="snapshot-btn" class="hud-btn" title="Save AR Morphed Photo">📸 SNAPSHOT</button>
+            <button id="toggle-demo-btn" class="hud-btn" title="Switch between Webcam and Simulation">🎮 CAM / DEMO</button>
+            <button id="demorph-btn" class="hud-btn hud-btn-danger hidden" title="Demorph back to Civilian">🛑 DEMORPH</button>
+            <span id="fps-counter" class="fps-badge">FPS: --</span>
+        </div>
+    </header>
+
+    <!-- Main Viewport -->
+    <main class="main-viewport">
+        <!-- Center Floating Morpher Status -->
+        <div class="banner-overlay">
+            <div id="status-banner" class="hud-banner">CIVILIAN MODE - STANDBY</div>
+            <div id="current-gesture-label" class="gesture-live-tag">SCANNING GESTURES...</div>
+        </div>
+
+        <!-- Battle Mode Floating HUD -->
+        <div id="battle-hud" class="battle-hud-panel hidden">
+            <div class="battle-hud-title">
+                <span>⚠️ COMMAND CORE DEFENSE</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">SCORE:</span>
+                <span id="battle-score" class="stat-val">0</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">HIGH SCORE:</span>
+                <span id="battle-highscore" class="stat-val">0</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">COMBO:</span>
+                <span id="battle-combo" class="stat-val combo-val">x1</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">CORE SHIELD:</span>
+                <span id="shield-val" class="stat-val">100%</span>
+            </div>
+            <div class="shield-bar-bg">
+                <div id="shield-bar-fill"></div>
+            </div>
+        </div>
+
+        <!-- Canvas Container -->
+        <div id="canvas-container">
+            <video id="webcam-video" playsinline autoplay muted></video>
+            <canvas id="ar-canvas"></canvas>
+        </div>
+    </main>
+
+    <!-- Bottom Gesture Legend HUD -->
+    <footer class="hud-bottom-bar">
+        <div class="legend-header">
+            <span class="legend-title">COMMAND GRID: HAND SYMBOL PROTOCOLS (HOLD 1.5s TO MORPH)</span>
+            <span class="legend-hint">Hotkeys: [1] Red | [2] Blue | [3] Yellow | [4] Green | [0] Demorph | [B] Battle</span>
+        </div>
+
+        <div class="gesture-cards-grid">
+            <!-- Red Ranger Card -->
+            <div class="gesture-card card-red" data-gesture="fist" data-ranger="red">
+                <div class="card-icon">✊</div>
+                <div class="card-content">
+                    <span class="card-ranger">RED RANGER</span>
+                    <span class="card-symbol">Fist / Closed Hand (Tyranno)</span>
+                </div>
+            </div>
+
+            <!-- Blue Ranger Card -->
+            <div class="gesture-card card-blue" data-gesture="peace" data-ranger="blue">
+                <div class="card-icon">✌️</div>
+                <div class="card-content">
+                    <span class="card-ranger">BLUE RANGER</span>
+                    <span class="card-symbol">Peace Sign (Tricera)</span>
+                </div>
+            </div>
+
+            <!-- Yellow Ranger Card -->
+            <div class="gesture-card card-yellow" data-gesture="open_palm" data-ranger="yellow">
+                <div class="card-icon">🖐️</div>
+                <div class="card-content">
+                    <span class="card-ranger">YELLOW RANGER</span>
+                    <span class="card-symbol">Open Palm (Sabertooth)</span>
+                </div>
+            </div>
+
+            <!-- Green Ranger Card -->
+            <div class="gesture-card card-green" data-gesture="horns" data-ranger="green">
+                <div class="card-icon">🤘</div>
+                <div class="card-content">
+                    <span class="card-ranger">GREEN RANGER</span>
+                    <span class="card-symbol">Rock / Horns (Dragon)</span>
+                </div>
+            </div>
+
+            <!-- Demorph Card -->
+            <div class="gesture-card card-demorph" data-gesture="thumbs_down" data-ranger="demorph">
+                <div class="card-icon">👎</div>
+                <div class="card-content">
+                    <span class="card-ranger">DE-MORPH</span>
+                    <span class="card-symbol">Thumbs Down / Crossed Wrists</span>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Camera Offline / Permission Modal with 1-Click Demo -->
+    <div id="camera-error-modal" class="modal-backdrop hidden">
+        <div class="modal-card">
+            <div class="modal-icon">📹</div>
+            <h2 class="modal-title">WEBCAM SENSORS OFFLINE</h2>
+            <p class="modal-desc">
+                Camera access was denied, unavailable, or you are running in a restricted browser view.
+                You can grant camera permissions and retry, or launch the interactive <strong>Command Center Simulation Matrix</strong> right now to test all 4 Ranger Morphs, AR vector helmets, Web Audio fanfares, and the Battle Mode mini-game!
+            </p>
+            <div class="modal-actions">
+                <button id="launch-demo-btn" class="hud-btn btn-primary">⚡ LAUNCH SIMULATION MATRIX</button>
+                <button onclick="window.morphinApp.startWebcam()" class="hud-btn">🔄 RETRY WEBCAM</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Engine Scripts -->
+    <script src="js/audio.js"></script>
+    <script src="js/gestures.js"></script>
+    <script src="js/helmets.js"></script>
+    <script src="js/game.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
